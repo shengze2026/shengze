@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生泽·炤衡立方</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:system-ui}
+.container{max-width:420px;margin:30px auto;padding:20px}
+.title{text-align:center;font-size:26px;font-weight:bold;margin-bottom:8px}
+.sub-title{text-align:center;color:#666;margin-bottom:24px}
+input{width:100%;padding:12px;margin:8px 0;border:1px solid #ccc;border-radius:8px;font-size:16px}
+button{width:100%;padding:14px;margin:6px 0;border:none;border-radius:8px;background:#3370ff;color:#fff;font-size:16px}
+button.secondary{background:#758696}
+button:disabled{background:#ccc;cursor:not-allowed}
+.split{height:1px;background:#ddd;margin:20px 0}
+.hide{display:none;}
+.tip{font-size:12px;color:#999;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="container" id="app">
+  <div class="title">生泽 · 炤衡立方</div>
+  <div class="sub-title" id="pageTitle">登录</div>
+
+  <div id="loginPage">
+    <input id="username" placeholder="用户名">
+    <input id="pwd" type="password" placeholder="密码">
+    <button onclick="SZ.account.doPwdLogin()">账号密码登录</button>
+    <button class="secondary" onclick="SZ.account.enterGuestMode()">访客浏览（只读）</button>
+    <button class="secondary" onclick="SZ.router.goto('register')">普通用户注册</button>
+    <div class="split"></div>
+    <button class="secondary" onclick="SZ.account.showAdminLogin()">管理员登录</button>
+    <div id="adminLoginBox" class="hide">
+      <input id="adminPwd" type="password" placeholder="管理员密码">
+      <button onclick="SZ.account.doAdminLogin()">确认</button>
+    </div>
+  </div>
+
+  <div id="registerPage" class="hide">
+    <input id="regUser" placeholder="设置用户名">
+    <input id="regPwd" type="password" placeholder="设置密码（至少6位）">
+    <button onclick="SZ.account.register()">完成注册</button>
+    <button class="secondary" onclick="SZ.router.goto('login')">返回登录</button>
+  </div>
+
+  <div id="adminPanel" class="hide">
+    <h3>管理员后台</h3>
+    <button onclick="SZ.account.exportData()">导出数据包</button>
+    <button class="secondary" onclick="SZ.account.logout()">退出登录</button>
+  </div>
+
+  <div id="homePage" class="hide">
+    <h3>生泽推演系统</h3>
+    <button onclick="SZ.liuren.start()">小六壬起课</button>
+    <button onclick="SZ.ziwei.calc()">紫微排盘</button>
+    <button class="secondary" onclick="SZ.account.logout()">退出登录</button>
+    <div class="tip" id="guestTip"></div>
+  </div>
+</div>
+
+<script>
+const SZ = {
+  async hash(str){
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");
+  },
+
+  lunarInfo:[0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+             0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+             0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+             0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+             0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+             0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+             0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+             0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b5a0,0x195a6,
+             0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+             0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+             0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+             0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+             0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+             0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+             0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0],
+
+  getLunar(date){
+    const y = date.getFullYear(), m = date.getMonth()+1, d = date.getDate();
+    const off = Date.UTC(y,m-1,d) - Date.UTC(1900,0,31);
+    let temp = Math.floor(off/86400000);
+    let ly = 1900;
+    for(; ly<2101 && temp>0; ly++){
+      temp -= SZ.lunarYearDays(ly);
+    }
+    if(temp<0){ temp += SZ.lunarYearDays(ly); ly--; }
+    let leap = SZ.leapMonth(ly), isLeap = false;
+    for(let i=1; i<13 && temp>0; i++){
+      if(leap>0 && i===(leap+1) && !isLeap){ --i; isLeap=true; temp -= SZ.leapDays(ly); }
+      else { temp -= SZ.lunarMonthDays(ly,i); }
+      if(!isLeap && i===leap && temp>0){ isLeap=true; --i; }
+      if(isLeap && i===leap+1) isLeap=false;
+    }
+    return { year:ly, month:isLeap?-i:i, day:temp+1 };
+  },
+  lunarYearDays(y){ let sum=348; for(let i=0x8000;i>0x8;i>>=1) sum+=(SZ.lunarInfo[y-1900]&i)?1:0; return sum+SZ.leapDays(y); },
+  leapMonth(y){ return SZ.lunarInfo[y-1900]&0xf; },
+  leapDays(y){ return SZ.leapMonth(y)?((SZ.lunarInfo[y-1900]&0x10000)?30:29):0; },
+  lunarMonthDays(y,i){ return (SZ.lunarInfo[y-1900]&(0x10000>>i))?30:29; },
+
+  account:{
+    adminUid:"SZ_ADMIN_001",
+    async initAdmin(pwd, name="生泽管理员"){
+      let users = this.getUserList();
+      if(!users.find(u=>u.uid===this.adminUid)){
+        users.push({uid:this.adminUid, username:name, role:"admin", pwdHash:await SZ.hash(pwd)});
+        this.saveUserList(users);
+      }
+      alert("管理员账号创建成功");
+    },
+    getUserList(){
+      const raw = localStorage.getItem("SZ_USERS");
+      return raw ? JSON.parse(raw) : [];
+    },
+    saveUserList(list){
+      localStorage.setItem("SZ_USERS", JSON.stringify(list));
+    },
+    async register(){
+      const name = document.getElementById("regUser").value.trim();
+      const pwd = document.getElementById("regPwd").value;
+      if(!name){ alert("请输入用户名"); return; }
+      if(pwd.length < 6){ alert("密码至少6位"); return; }
+      const users = this.getUserList();
+      if(users.find(u=>u.username===name)){ alert("用户名已存在"); return; }
+      users.push({uid:"USER_"+Date.now(), username:name, role:"user", pwdHash:await SZ.hash(pwd)});
+      this.saveUserList(users);
+      alert("注册成功");
+      SZ.router.goto("login");
+    },
+    async doPwdLogin(){
+      const name = document.getElementById("username").value.trim();
+      const pwd = document.getElementById("pwd").value;
+      const users = this.getUserList();
+      const user = users.find(u=>u.username===name);
+      if(!user || user.pwdHash !== await SZ.hash(pwd)){ alert("账号或密码错误"); return; }
+      localStorage.setItem("SZ_CURRENT", JSON.stringify(user));
+      alert("登录成功");
+      SZ.router.goto(user.role==="admin" ? "adminPanel" : "home");
+    },
+    showAdminLogin(){
+      document.getElementById("adminLoginBox").classList.toggle("hide");
+    },
+    async doAdminLogin(){
+      const pwd = document.getElementById("adminPwd").value;
+      const users = this.getUserList();
+      const admin = users.find(u=>u.uid===this.adminUid);
+      if(!admin){ alert("管理员未初始化，请在控制台执行 SZ.account.initAdmin('你的密码')"); return; }
+      if(admin.pwdHash !== await SZ.hash(pwd)){ alert("密码错误"); return; }
+      localStorage.setItem("SZ_CURRENT", JSON.stringify(admin));
+      alert("管理员登录成功");
+      SZ.router.goto("adminPanel");
+    },
+    enterGuestMode(){
+      localStorage.setItem("SZ_CURRENT", JSON.stringify({role:"guest"}));
+      alert("访客模式，只读");
+      SZ.router.goto("home");
+    },
+    logout(){
+      localStorage.removeItem("SZ_CURRENT");
+      alert("已退出");
+      SZ.router.goto("login");
+    },
+    exportData(){
+      const data = {users: this.getUserList()};
+      const json = JSON.stringify(data,null,2);
+      const blob = new Blob([json],{type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href=url; a.download="生泽备份.json"; a.click();
+      URL.revokeObjectURL(url);
+    }
+  },
+
+  router:{
+    goto(pageName){
+      document.querySelectorAll("#loginPage,#registerPage,#adminPanel,#homePage").forEach(el=>el.classList.add("hide"));
+      if(pageName==="login") document.getElementById("loginPage").classList.remove("hide");
+      if(pageName==="register") document.getElementById("registerPage").classList.remove("hide");
+      if(pageName==="adminPanel") document.getElementById("adminPanel").classList.remove("hide");
+      if(pageName==="home"){
+        document.getElementById("homePage").classList.remove("hide");
+        const cur = JSON.parse(localStorage.getItem("SZ_CURRENT")||"{}");
+        const isGuest = cur.role === "guest";
+        document.querySelectorAll("#homePage button").forEach(b=>{
+          if(b.textContent.includes("退出")) return;
+          b.disabled = isGuest;
+        });
+        document.getElementById("guestTip").textContent = isGuest ? "访客模式：功能只读，请登录后使用" : "";
+      }
+    }
+  },
+
+  liuren:{
+    start(){
+      const cur = JSON.parse(localStorage.getItem("SZ_CURRENT")||"{}");
+      if(cur.role==="guest"){ alert("访客模式不可用，请先登录"); return; }
+      const lunar = SZ.getLunar(new Date());
+      const hour = new Date().getHours();
+      const shichen = Math.floor((hour+1)/2) % 12;
+      const list = ["大安","留连","速喜","赤口","小吉","空亡"];
+      const idx = (Math.abs(lunar.month) + lunar.day + shichen) % 6;
+      alert("小六壬结果：" + list[idx] + "（农历" + lunar.month + "月" + lunar.day + "日 " + "时辰" + (shichen+1) + "）");
+    }
+  },
+
+  ziwei:{
+    calc(){
+      const cur = JSON.parse(localStorage.getItem("SZ_CURRENT")||"{}");
+      if(cur.role==="guest"){ alert("访客模式不可用，请先登录"); return; }
+      const t = new Date();
+      const month = t.getMonth()+1;
+      const hour = Math.floor((t.getHours()+1)/2) % 12;
+      const mingIndex = (2 + month - 1 - hour + 12) % 12;
+      const dizhi = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+      alert("紫微排盘（基础版）\n命宫：" + dizhi[mingIndex] + "\n注：完整排盘需五行局、十四主星等参数，当前为基础框架");
+    }
+  }
+}
+
+// 控制台执行一次，创建管理员账号
+// SZ.account.initAdmin("你的自定义密码","生泽管理员");
+</script>
+</body>
+</html>
